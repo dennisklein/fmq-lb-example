@@ -11,7 +11,7 @@ endif()
 include(GNUInstallDirs)
 
 # TODO Refactor to use FairFindPackage2 module
-find_package(FairMQ 1.4 REQUIRED COMPONENTS sdk)
+find_package(FairMQ 1.4 REQUIRED)
 foreach(dep IN LISTS FairMQ_PACKAGE_DEPENDENCIES)
   if(NOT dep STREQUAL FairLogger)
     if(FairMQ_${dep}_COMPONENTS)
