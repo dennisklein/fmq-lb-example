@@ -1,5 +1,5 @@
 #include <app.hpp>
-#include <cstring>
+#include <cassert>
 #include <FairMQChannel.h>
 #include <fairmq/Device.h>
 #include <fairmq/DeviceRunner.h>
@@ -14,20 +14,30 @@ namespace
 struct worker : Device
 {
   auto Init() -> void override {
-    AddChannel("work", FairMQChannel("req", "connect", "tcp://localhost:5555"));
+    this->AddChannel("work", FairMQChannel("req", "connect", "tcp://localhost:5555"));
   }
 
   auto ConditionalRun() -> bool override {
-    auto request_work_msg(NewMessage());
-    auto work_msg(NewMessage());
-    if (Send(request_work_msg, "work") >= 0) {
-      if (Receive(work_msg, "work") >= 0) {
-        auto work(std::make_unique<app::work>());
-        std::memcpy(static_cast<void*>(work.get()), work_msg->GetData(), sizeof(app::work)); // TODO use proper deserialization
-        app::do_work(std::move(work));
-        return true;
+    using namespace app;
+
+    auto & ch(this->fChannels.at("work").at(0)); // channel to receive and send on
+
+    auto work_request_msg(ch.NewMessage());
+    if (ch.Send(work_request_msg) == 0) {
+      auto work_msg(ch.NewMessage());
+      if (ch.Receive(work_msg) > 0) {
+        return do_work(deserialize<work>(std::move(work_msg)));
       }
     }
+
+    // for some future FairMQ version we plan to support:
+    //
+    // auto & ch(fChannels.at("work").at(0)); // channel to receive and send on
+    //
+    // if (ch.Send(ch.NewMessage()) == 0) {
+    //   return do_work(deserialize<work>(ch.Receive()));
+    // }
+
     return false;
   }
 };
